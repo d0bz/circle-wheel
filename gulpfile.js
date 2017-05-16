@@ -64,5 +64,23 @@ gulp.task('build-dev-styles', function() {
         .pipe(gulp.dest(paths.dist));
 });
 
+gulp.task('watch', ['build-dev'], function() {
+
+    // watch app scripts
+    gulp.watch(paths.appScripts, function() {
+        return pipes.buildApp()
+			.pipe(gulp.dest(paths.dist))
+            .on('end', function(){ gutil.log('Done scripts!'); });
+    });
+
+    // watch styles
+    gulp.watch(paths.styles, function() {
+        return pipes.buildStyles()
+			.pipe(gulp.dest(paths.dist))
+            .on('end', function(){ gutil.log('Done styles!'); });
+    });
+
+})
+
 gulp.task('default', ['build-prod', 'build-prod-styles']);
 gulp.task('build', ['build-dev', 'build-dev-styles']);
