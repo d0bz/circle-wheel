@@ -35,4 +35,4 @@ Circle = function(options, callback){
 	}
 	
 	return this;
-}
+};

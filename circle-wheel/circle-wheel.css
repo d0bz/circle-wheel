@@ -9,6 +9,10 @@
   border: 3px solid lightblue;
 }
 
+.circle-wheel-container {
+	z-index: 10;
+}
+
 .circle-wheel.hidden {
   position: relative;
   border-radius: 50%;

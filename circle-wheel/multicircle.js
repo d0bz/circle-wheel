@@ -42,9 +42,13 @@ MultiCircle = function(options, subcircles){
 		}
 	}
 	
+	this.getCircleWheel = function(){
+		return circleWheel;
+	}
+	
 	this.addCloseCallback = function(func){
 		circleWheel.circleClosedCallback(func);
 	};
 	
 	return this;
-}
+};

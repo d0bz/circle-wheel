@@ -2647,6 +2647,8 @@ CircleWheel = function(container, selectors, options) {
 	this.centerCircle = null;
 	this.selectorElements = [];
 	
+	this.center = {};
+	
 	function hasClass(ele,cls) {
 	  if(ele && ele.className) {
 		  return !!ele.className.match(new RegExp('(\\s|^)'+cls+'(\\s|$)'));
@@ -2678,8 +2680,6 @@ CircleWheel = function(container, selectors, options) {
 	  }
 	}
 	
-	
-	
 	this.setSelectedState = function(selector, state){
 		selector.setSelected(state);
 		
@@ -2691,7 +2691,12 @@ CircleWheel = function(container, selectors, options) {
 			removeClass(selector.getElement(), "selected");
 		}
 	};
-
+	
+	this.addNewSelector = function(selector){
+		createSelectorElement.call(this, selector);
+		calculateCirclePositions.call(this);
+		calculateCircleAngle.call(this);
+	};
 
     this.init = function() {
 		
@@ -2718,60 +2723,20 @@ CircleWheel = function(container, selectors, options) {
 		   '<div class="circle-wheel">'+
 		   '</div>'+
 		   '</div>';
-		
 
         this.circle = containerEl.getElementsByClassName('circle-wheel')[0];
 		
-        var textTemplate = '<i title="%TEXT%">%TEXT%</i>';
-        var imageTemplate = '<img class="img-circle" src="%IMAGESRC%" title="%TEXT%"/>%TEXT%';
         selectors.forEach(function(e) {
-            var newSelector = document.createElement("div");
-			e.setElement(newSelector);
-            if(e instanceof MultiCircle){
-				newSelector.className = "circle multi-circle";
-			}else{
-				newSelector.className = "circle";
-			}
-		
-			var innerHTML = null;
-			if(e.getImage()){
-				innerHTML = imageTemplate.replaceAll("%IMAGESRC%", e.getImage()).replaceAll("%TEXT%", e.getText());
-			}else{
-				innerHTML = textTemplate.replaceAll("%TEXT%", e.getText());
-			}
-			
-			newSelector.innerHTML = innerHTML;
-
-            var mc = new Hammer(newSelector);
-            mc.on("tap", function() {
-				self.setSelectedState(e, !e.getSelected());
-							
-				if(e instanceof MultiCircle){
-					togglePan.call(self, false, newSelector);
-					e.addCloseCallback(function(){
-						togglePan.call(self, true);
-					});
-				}
-            });
-
-			if(e.getSelected()){
-				self.setSelectedState(e, true);
-            }
-			
-			self.circle.appendChild(newSelector);
-			self.selectorElements.push(newSelector);
-			if(e instanceof MultiCircle){
-				e.init();
-			}
+            createSelectorElement.call(self, e);
         });
 
         /**
          * Get elements
          */
         var circleContainer = containerEl.getElementsByClassName('circle-wheel-container')[0],
-            circleDimensions = circleContainer.getBoundingClientRect(),
-            transcludeDiv = containerEl.getElementsByClassName('circle-wheel')[0];
-			
+            circleDimensions = circleContainer.getBoundingClientRect();
+            
+		self.transcludeDiv = containerEl.getElementsByClassName('circle-wheel')[0];
 		self.centerCircle = containerEl.getElementsByClassName('circle-wheel-activate')[0];
 
 
@@ -2793,7 +2758,7 @@ CircleWheel = function(container, selectors, options) {
 				removeClass(self.circle, "hidden");
 				addClass(self.centerCircle, "activated");
 				circleDimensions = circleContainer.getBoundingClientRect();
-				center = {
+				self.center = {
 					x: circleDimensions.left + circleDimensions.width / 2,
 					y: circleDimensions.top + circleDimensions.height / 2
 				};
@@ -2804,57 +2769,21 @@ CircleWheel = function(container, selectors, options) {
 				circleClosedEvent();
 			}
 		};
-
-        /**
-         * Position circles around parent circle
-         */
-
-        var theta = [];
-
-        var n = self.selectorElements.length;
-
-        var r = (window.getComputedStyle(transcludeDiv).height.slice(0, -2) / 2) - (window.getComputedStyle(self.selectorElements[0]).height.slice(0, -2) / 2);
-
-        var frags = 360 / n;
-        for (var i = 0; i <= n; i++) {
-            theta.push((frags / 180) * i * Math.PI);
-        }
-
-        var mainHeight = parseInt(window.getComputedStyle(transcludeDiv).height.slice(0, -2)) / 1.2;
-
-        var circleArray = [];
-
-        for (var i = 0; i < self.selectorElements.length; i++) {
-            self.selectorElements[i].posx = Math.round(r * (Math.cos(theta[i]))) + 'px';
-            self.selectorElements[i].posy = Math.round(r * (Math.sin(theta[i]))) + 'px';
-            self.selectorElements[i].style.top = ((mainHeight / 2) - parseInt(self.selectorElements[i].posy.slice(0, -2))) + 'px';
-            self.selectorElements[i].style.left = ((mainHeight / 2) + parseInt(self.selectorElements[i].posx.slice(0, -2))) + 'px';
-        }
+		
+		calculateCirclePositions.call(self);
 
         /**
          * Rotate circle on drag
          */
 
-        var center = {
+        self.center = {
             x: circleDimensions.left + circleDimensions.width / 2,
             y: circleDimensions.top + circleDimensions.height / 2
         };
 
-        var getAngle = function(x, y) {
-            var deltaX = x - center.x,
-                deltaY = y - center.y,
-                angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
-
-            if (angle < 0) {
-                angle = angle + 360;
-            }
-
-            return angle;
-        };
-
-        var updatedAngle = 0,
-            originalAngle = 0,
-            currentAngle = 0;
+        self.updatedAngle = 0,
+            self.originalAngle = 0,
+            self.currentAngle = 0;
         var wheelMouseDown = false;
 
         mc.on("panleft panright panup pandown", function(e) {
@@ -2864,25 +2793,19 @@ CircleWheel = function(container, selectors, options) {
             if (!wheelMouseDown) {
                 var pageX = e.center.x;
                 var pageY = e.center.y;
-                updatedAngle = getAngle(pageX, pageY);
+                self.updatedAngle = getAngle.call(self, pageX, pageY);
                 wheelMouseDown = true;
             }
+			
+			var pageX = e.center.x;
+			var pageY = e.center.y;
 
-            var pageX = e.center.x;
-            var pageY = e.center.y;
-
-            currentAngle = getAngle(pageX, pageY) - updatedAngle + originalAngle;
-
-            self.circle.style.transform = self.circle.style.webkitTransform = 'rotate(' + currentAngle + 'deg)';
-
-            for (var i = 0; i < self.selectorElements.length; i++) {
-                self.selectorElements[i].style.transform = self.selectorElements[i].style.webkitTransform = 'rotate(' + -currentAngle + 'deg)';
-            }
-
+			self.currentAngle = getAngle.call(self, pageX, pageY) - self.updatedAngle + self.originalAngle;			
+            calculateCircleAngle.call(self, e);
         });
 
         mc.on("panend", function(event) {
-            originalAngle = currentAngle;
+            self.originalAngle = self.currentAngle;
             wheelMouseDown = false;
         });
 		
@@ -2928,6 +2851,100 @@ CircleWheel = function(container, selectors, options) {
 			circleClosedCallbackFunction();
 		}
 	};
+	
+	var textTemplate = '<i title="%TEXT%">%TEXT%</i>';
+	var imageTemplate = '<img class="img-circle" src="%IMAGESRC%" title="%TEXT%"/>%TEXT%';	
+	var createSelectorElement = function(e){
+		var self = this;
+		var newSelector = document.createElement("div");
+		e.setElement(newSelector);
+		if(e instanceof MultiCircle){
+			newSelector.className = "circle multi-circle";
+		}else{
+			newSelector.className = "circle";
+		}
+	
+		var innerHTML = null;
+		if(e.getImage()){
+			innerHTML = imageTemplate.replaceAll("%IMAGESRC%", e.getImage()).replaceAll("%TEXT%", e.getText());
+		}else{
+			innerHTML = textTemplate.replaceAll("%TEXT%", e.getText());
+		}
+		
+		newSelector.innerHTML = innerHTML;
+
+		var mc = new Hammer(newSelector);
+		mc.on("tap", function() {
+			self.setSelectedState(e, !e.getSelected());
+						
+			if(e instanceof MultiCircle){
+				togglePan.call(self, false, newSelector);
+				e.addCloseCallback(function(){
+					togglePan.call(self, true);
+				});
+			}
+		});
+
+		if(e.getSelected()){
+			self.setSelectedState(e, true);
+		}
+		
+		self.circle.appendChild(newSelector);
+		self.selectorElements.push(newSelector);
+		if(e instanceof MultiCircle){
+			e.init();
+		}
+	};
+	
+	
+	/**
+	 * Position circles around parent circle
+	 */
+
+	var calculateCirclePositions = function(){
+		var self = this;
+		var theta = [];
+
+		var n = self.selectorElements.length;
+
+		var r = (window.getComputedStyle(self.transcludeDiv).height.slice(0, -2) / 2) - (window.getComputedStyle(self.selectorElements[0]).height.slice(0, -2) / 2);
+
+		var frags = 360 / n;
+		for (var i = 0; i <= n; i++) {
+			theta.push((frags / 180) * i * Math.PI);
+		}
+
+		var mainHeight = parseInt(window.getComputedStyle(self.transcludeDiv).height.slice(0, -2)) / 1.2;
+
+		for (var i = 0; i < self.selectorElements.length; i++) {
+			self.selectorElements[i].posx = Math.round(r * (Math.cos(theta[i]))) + 'px';
+			self.selectorElements[i].posy = Math.round(r * (Math.sin(theta[i]))) + 'px';
+			self.selectorElements[i].style.top = ((mainHeight / 2) - parseInt(self.selectorElements[i].posy.slice(0, -2))) + 'px';
+			self.selectorElements[i].style.left = ((mainHeight / 2) + parseInt(self.selectorElements[i].posx.slice(0, -2))) + 'px';
+		}
+	}
+	
+	var calculateCircleAngle = function(){
+		var self = this;
+		self.circle.style.transform = self.circle.style.webkitTransform = 'rotate(' + self.currentAngle + 'deg)';
+
+		for (var i = 0; i < self.selectorElements.length; i++) {
+			self.selectorElements[i].style.transform = self.selectorElements[i].style.webkitTransform = 'rotate(' + -self.currentAngle + 'deg)';
+		}
+	}	
+	
+	var getAngle = function(x, y) {
+		var self = this;
+		var deltaX = x - self.center.x,
+			deltaY = y - self.center.y,
+			angle = Math.atan2(deltaY, deltaX) * 180 / Math.PI;
+
+		if (angle < 0) {
+			angle = angle + 360;
+		}
+
+		return angle;
+	};
 
     /**
      *	HELPERS
@@ -2942,7 +2959,7 @@ CircleWheel = function(container, selectors, options) {
      */
 
     return this;
-}
+};
 Circle = function(options, callback){
 	
 	var element = null;
@@ -2980,7 +2997,7 @@ Circle = function(options, callback){
 	}
 	
 	return this;
-}
+};
 MultiCircle = function(options, subcircles){
 
 	var circleWheel = false;
@@ -3025,9 +3042,13 @@ MultiCircle = function(options, subcircles){
 		}
 	}
 	
+	this.getCircleWheel = function(){
+		return circleWheel;
+	}
+	
 	this.addCloseCallback = function(func){
 		circleWheel.circleClosedCallback(func);
 	};
 	
 	return this;
-}
+};
