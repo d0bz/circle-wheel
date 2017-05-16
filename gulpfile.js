@@ -4,6 +4,7 @@ var order = require("gulp-order");
 var uglify = require("gulp-uglify");
 var minify = require("gulp-minify-css");
 var streamqueue = require('streamqueue');
+var gutil = require('gulp-util');
 
 // == PATH STRINGS ========
 

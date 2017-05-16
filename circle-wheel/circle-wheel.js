@@ -79,7 +79,7 @@ CircleWheel = function(container, selectors, options) {
 
         this.circle = containerEl.getElementsByClassName('circle-wheel')[0];
 		
-        var textTemplate = '<i class="icon ion-home" title="%TEXT%">%TEXT%</i>';
+        var textTemplate = '<i title="%TEXT%">%TEXT%</i>';
         var imageTemplate = '<img class="img-circle" src="%IMAGESRC%" title="%TEXT%"/>%TEXT%';
         selectors.forEach(function(e) {
             var newSelector = document.createElement("div");
